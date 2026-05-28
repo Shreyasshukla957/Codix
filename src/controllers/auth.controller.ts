@@ -4,6 +4,7 @@ import type { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
+import redisclient from "../config/redis.js";
 
 
 interface Registerbody {
@@ -113,33 +114,44 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response<Respo
 
 }
 
+interface JwtDecoded {
+    exp: number;
+}
+
 
 export const logout = async (req: Request, res: Response<Responsebody>): Promise<void> => {
 
 
     try {
+
         const { token } = req.cookies;
+        const decoded = jwt.decode(token) as JwtDecoded;
+        const currentTime : number = Math.floor(Date.now()/1000);
+        const expiresIn : number =  decoded.exp - currentTime ;
 
+        await redisclient.set(`token:${token}`, "blocked", { EX: expiresIn });
 
+        res.clearCookie("token",{
+            httpOnly:true
+        });
+        
+        res.status(200).send({ message: "Logged out successfully" });
         
 
-
-
-
-
     } 
-    // catch(error){
-    //     if(error instanceof Error){
-    //         res.status().send({
-    //             message:
-    //         })
-    //     }
+    catch(error){
 
-    // }
+        if(error instanceof Error){
+            res.status(500).send({
+                message:error.message
+            })
+        }
+
+    }
 
 
 
-// }
+}
 
 
 
